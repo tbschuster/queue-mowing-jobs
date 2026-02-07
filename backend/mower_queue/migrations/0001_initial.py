@@ -104,10 +104,10 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name="fieldqueue",
-            name="machine_id",
+            name="machine",
             field=models.ForeignKey(
                 on_delete=django.db.models.deletion.CASCADE,
-                related_name="machine",
+                related_name="queues",
                 to="mower_queue.machine",
             ),
         ),

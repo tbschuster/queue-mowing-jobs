@@ -17,34 +17,44 @@ from urllib import request, error
 logging.basicConfig(level=logging.INFO)
 
 # Feel free to change MACHINE_ID as needed
-MACHINE_ID = "f2e5e2cd-7e76-4dbd-92eb-057986bff93e"
+# MACHINE_ID = "f2e5e2cd-7e76-4dbd-92eb-057986bff93e"
+MACHINE_ID = "051da667-809c-4694-b9cb-ac48002f3b72"
 
 
 class MachineSimulator:
     def __init__(self, machine_id):
         self.machine_id = machine_id
         self.state = "Idle"
+        self.current_queue = None
         self.current_field = None
+        self.previous_field = None
         self.current_eta = 0  # time in seconds until complete
         # start update thread
         threading.Thread(target=self._post_update).start()
 
-    def start_mowing(self, field_id):
+    def start_mowing(self, field_id, queue_id):
         self.state = "Mowing"
+        self.current_queue = queue_id
         self.current_field = field_id
         self.current_eta = 30  # seconds job will take
-        threading.Thread(target=self._simulate_mowing, args=(field_id,)).start()
+        threading.Thread(
+            target=self._simulate_mowing,
+            args=(
+                field_id,
+                queue_id,
+            ),
+        ).start()
 
     def stop_mowing(self):
         self.state = "Idle"
         self.current_eta = 0  # time in seconds until complete
 
-    def _simulate_mowing(self, field_id):
+    def _simulate_mowing(self, field_id, queue_id):
         while True:
             if self.state == "Paused":
                 print(
-                    f"Machine {self.machine_id} paused mowing field {field_id}, ETA:"
-                    f" {self.current_eta}"
+                    f"Machine {self.machine_id} paused mowing field {field_id} on queue"
+                    f" {queue_id}, ETA: {self.current_eta}"
                 )
                 time.sleep(1)
                 continue
@@ -53,15 +63,19 @@ class MachineSimulator:
                 break
             elif self.state == "Mowing":
                 print(
-                    f"Machine {self.machine_id} mowing field {field_id}, ETA:"
-                    f" {self.current_eta}s"
+                    f"Machine {self.machine_id} mowing field {field_id} on queue"
+                    f" {queue_id}, ETA: {self.current_eta}s"
                 )
                 self.current_eta = self.current_eta - 1
 
                 if self.current_eta < 0:
-                    print(f"Machine {self.machine_id} finished mowing field {field_id}")
+                    print(
+                        f"Machine {self.machine_id} finished mowing field {field_id} on"
+                        f" queue {queue_id}"
+                    )
                     self.current_eta = 0
                     self.state = "Idle"
+                    self.previous_field = self.current_field
                     self.current_field = None
                     break
                 else:
@@ -74,11 +88,21 @@ class MachineSimulator:
     def resume(self):
         self.state = "Mowing" if self.current_field else "Idle"
 
+    def update_current_field(self, field_id, queue_id):
+        self.current_queue = queue_id
+        self.current_field = field_id
+        if field_id and self.state in ["Mowing", "Paused"]:
+            self.current_eta = 30
+        else:
+            self.current_eta = 0
+
     def get_status(self):
         return {
             "machine_id": self.machine_id,
             "state": self.state,
+            "current_queue": self.current_queue,
             "current_field": self.current_field,
+            "previous_field": self.previous_field,
         }
 
     def _post_update(self):
@@ -88,9 +112,9 @@ class MachineSimulator:
             try:
                 payload = {
                     "state": self.state,
-                    "current_field": (
-                        "" if self.current_field is None else self.current_field
-                    ),
+                    "current_queue": self.current_queue or "",
+                    "current_field": self.current_field or "",
+                    "previous_field": self.previous_field or "",
                     "timestamp": time.time(),
                 }
 
@@ -113,6 +137,7 @@ class MachineSimulator:
                 with request.urlopen(req, timeout=5) as response:
                     print(f"Update telem to backend, payload: {json_data}")
                     response_data = response.read().decode("utf-8")
+                    # self.current_field = response_data.get("field_id")
 
             except error.HTTPError as e:
                 print(f"[Machine {self.machine_id}] HTTP Error {e.code}: {e.reason}")
@@ -151,7 +176,8 @@ class MachineRequestHandler(BaseHTTPRequestHandler):
 
             if command == "start_mowing":
                 field_id = data.get("field_id")
-                machine.start_mowing(field_id)
+                queue_id = data.get("queue_id")
+                machine.start_mowing(field_id, queue_id)
                 self._send_json({"status": "success", "state": machine.state})
 
             elif command == "stop":
@@ -164,6 +190,12 @@ class MachineRequestHandler(BaseHTTPRequestHandler):
 
             elif command == "resume":
                 machine.resume()
+                self._send_json({"status": "success", "state": machine.state})
+
+            elif command == "update_current_field":
+                field_id = data.get("field_id")
+                queue_id = data.get("queue_id")
+                machine.update_current_field(field_id, queue_id)
                 self._send_json({"status": "success", "state": machine.state})
 
             else:
