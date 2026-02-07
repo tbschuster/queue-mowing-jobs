@@ -1,0 +1,9 @@
+asgiref==3.11.0
+Django==5.2.10
+djangorestframework==3.16.1
+django-seed==0.3.1
+Faker==40.1.2
+psycopg2==2.9.11
+sqlparse==0.5.5
+toposort==1.10
+typing_extensions==4.15.0
