@@ -72,22 +72,22 @@ class FieldQueue(models.Model):
             item_count = queue.items.count()
             position = item_count if position is None else position
 
-            if position < 0:
+            if position < 0 or position >= 10:
                 raise ValidationError(
                     f"Failed to add field to queue {queue.id}. Position {position} is"
                     " out of range."
                 )
 
-            if position >= 10 or item_count >= 10:
+            if item_count >= 10:
                 raise ValidationError(
                     f"Failed to add field to queue {queue.id}. The queue has reached"
                     " the maximum amount of 10 queued items."
                 )
 
-            if position > item_count + 1 or (item_count == 0 and position != 0):
+            if position > item_count or (item_count == 0 and position != 0):
                 raise ValidationError(
                     f"Failed to add field  to queue {queue.id} at position {position}."
-                    f" The queue only has {item_count} queued items."
+                    f" The next position should be {item_count}."
                 )
 
             queue.items.filter(position__gte=position).update(

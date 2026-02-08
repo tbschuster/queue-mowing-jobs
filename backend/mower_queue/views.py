@@ -94,7 +94,7 @@ def incoming_machine_telem(request, machine_id):
                 field_id=next_item.id,
                 queue_id=current_queue_id,
             )
-            Response(
+            return Response(
                 {
                     "data": queue.serialize(),
                     "message": (
@@ -289,7 +289,7 @@ def queue_skip(request, machine_id, queue_id):
 
 @api_view(["GET", "POST", "DELETE"])
 def queue_items(request, machine_id, queue_id):
-    """Add field to queue"""
+    """List queue items, add field to queue or delete field from queue"""
     try:
         queue = FieldQueue.objects.get(
             id=queue_id,

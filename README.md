@@ -497,3 +497,13 @@ docker compose exec mower-queue curl -X DELETE http://mower-queue:8000/api/v1/ma
 
 - For this project, I assumed that a machine can have multiple queues (to ensure that a history of the data is kept)
 - The machine is instructed to go to the next field when `incoming_machine_telem` indicates that the previous field was completed
+
+# Areas of improvement
+
+- The endpoints calling `send_machine_command` should first check the response received from the machine before making any status changes on the queue and its queued items
+- The position index starts at 0 in this project and ends at 9 (for a queue size limit of 10), but it might be more user-friendly if starting at 1
+- The `field_id` column on the `FieldQueueItem` model is easy to mistake for the `id` column. The `field_id` column should point to a new table (`Field`) that should contain all the information about different fields (e.g. id, name, size...). Or at least the column `field_id` should be renamed into something like `name`
+- The field queue items returned by the different endpoints should maybe be ordered by position to make the output clearer
+- Model serialization could be done using Django's serializers
+- Code factorisation
+- Adding tests would allow for faster iterations (out of scope)
